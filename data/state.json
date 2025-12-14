@@ -1,12 +1,60 @@
 {
   "menus": {
-    "Kantine": ["Plat du jour", "Dessert"],
-    "Amerikain": ["Burger", "Frites"],
-    "Italien": ["Pasta", "Tiramisu"]
+    "Kantine": [
+      "Plat du jour",
+      "Dessert"
+    ],
+    "Amerikain": [
+      "Burger",
+      "Frites"
+    ],
+    "Italien": [
+      "Pasta",
+      "Tiramisu"
+    ]
   },
-  "messages": {},
+  "messages": {
+    "1449738148786602128": {
+      "channelId": "1442787718294933676",
+      "title": "15/12/2025 - 19/12/2025",
+      "createdAt": 1765714909724,
+      "reservations": {
+        "1079060870354710698": {
+          "userId": "1079060870354710698",
+          "userTag": "nivmizz7",
+          "displayName": "Niv",
+          "slot": "Absence",
+          "choice": null,
+          "updatedAt": 1765714940188
+        },
+        "1130167258052833442": {
+          "userId": "1130167258052833442",
+          "userTag": "its_reven",
+          "displayName": "Naytox",
+          "slot": "11h-12h",
+          "choice": "Italien",
+          "updatedAt": 1765714948661
+        }
+      }
+    },
+    "1449739054160810186": {
+      "channelId": "1442787718294933676",
+      "title": "15/12/2025 - 19/12/2025",
+      "createdAt": 1765715125620,
+      "reservations": {
+        "1079060870354710698": {
+          "userId": "1079060870354710698",
+          "userTag": "nivmizz7",
+          "displayName": "Niv",
+          "slot": "Bench",
+          "choice": null,
+          "updatedAt": 1765715149182
+        }
+      }
+    }
+  },
   "settings": {
-    "defaultChannelId": "",
-    "lastTitle": "Menus de la semaine"
+    "defaultChannelId": "1442787718294933676",
+    "lastTitle": "15/12/2025 - 19/12/2025"
   }
 }

@@ -164,7 +164,7 @@ export class KantineBot {
     const [, slot, messageId] = customId.split(':');
     const choice = values[0];
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferUpdate();
     await upsertReservation(messageId, {
       userId: interaction.user.id,
       userTag: interaction.user.tag,
@@ -175,16 +175,10 @@ export class KantineBot {
 
     await this.refreshMessage(messageId);
 
-    await interaction.editReply(`Réservation enregistrée pour ${slot} (${choice}).`);
-
-    if (interaction.message?.editable) {
-      await interaction.message
-        .edit({
-          content: 'Réservation enregistrée ✅',
-          components: []
-        })
-        .catch(() => {});
-    }
+    await interaction.followUp({
+      ephemeral: true,
+      content: `Réservation enregistrée pour ${slot} (${choice}).`
+    });
   }
 }
 
