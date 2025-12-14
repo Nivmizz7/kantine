@@ -1,0 +1,12 @@
+{
+  "menus": {
+    "Kantine": ["Plat du jour", "Dessert"],
+    "Amerikain": ["Burger", "Frites"],
+    "Italien": ["Pasta", "Tiramisu"]
+  },
+  "messages": {},
+  "settings": {
+    "defaultChannelId": "",
+    "lastTitle": "Menus de la semaine"
+  }
+}

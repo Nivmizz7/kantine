@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Kantine Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header>
+        <h1>Panel Kantine</h1>
+        <p>Mettez à jour les menus et envoyez l’intégration Discord.</p>
+      </header>
+
+      <section class="card">
+        <h2>Menus</h2>
+        <form id="menu-form">
+          <div class="grid">
+            <label>
+              Kantine
+              <textarea name="Kantine" rows="5" placeholder="Un élément par ligne"></textarea>
+            </label>
+            <label>
+              Amerikain
+              <textarea name="Amerikain" rows="5" placeholder="Un élément par ligne"></textarea>
+            </label>
+            <label>
+              Italien
+              <textarea name="Italien" rows="5" placeholder="Un élément par ligne"></textarea>
+            </label>
+          </div>
+          <button type="submit">Sauvegarder les menus</button>
+        </form>
+        <p class="hint" id="menu-status"></p>
+      </section>
+
+      <section class="card">
+        <h2>Envoyer / mettre à jour le message Discord</h2>
+        <form id="send-form">
+          <label>
+            ID du salon Discord
+            <input name="channelId" placeholder="1234567890" required />
+          </label>
+          <label>
+            Titre de l’intégration
+            <input name="title" placeholder="Menus de la semaine" />
+          </label>
+          <button type="submit">Envoyer le message</button>
+        </form>
+        <p class="hint" id="send-status"></p>
+      </section>
+
+      <section class="card">
+        <h2>Aide rapide</h2>
+        <ul>
+          <li>Ajoutez le bot à votre serveur et copiez l’ID du salon cible.</li>
+          <li>Chaque bouton Discord permet aux collègues de réserver leur créneau.</li>
+          <li>Les menus peuvent être modifiés autant que nécessaire avant l’envoi.</li>
+        </ul>
+      </section>
+    </main>
+    <script type="module" src="./panel.js"></script>
+  </body>
+</html>
