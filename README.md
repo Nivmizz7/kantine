@@ -1,65 +1,115 @@
-## Kantine bot + panel
+# Kantine Bot + Admin Panel
 
-Bot Discord inspiré de Raid-Helper avec panneau web pour gérer trois menus (Kantine, Amerikain, Italien) et envoyer un message interactif dans le salon de votre choix. Les collègues réservent leur créneau (11h‑12h, 12h‑13h) et leur restaurant via des boutons + menus déroulants, ou se déclarent Absence / Bench.
+Discord bot inspired by Raid-Helper, with a lightweight web admin panel to manage three lunch menus (Kantine, American, Italian) and post an interactive message in a chosen Discord channel.
 
-### Prérequis
+Team members can reserve their time slot (11:00–12:00, 12:00–13:00) and restaurant using buttons and dropdown menus, or mark themselves as Absent / Bench.
+
+---
+
+## Prerequisites
 
 - Node.js 18+
 - npm
-- Un compte Discord avec accès administrateur sur le serveur cible
-- (Optionnel) un compte GitHub pour versionner/déployer
+- A Discord account with administrator access to the target server
+- (Optional) A GitHub account for versioning and deployment
 
-### 1. Préparer le dépôt GitHub
+---
 
-1. Initialisez le repo local (déjà fait ici).  
-2. Créez un dépôt vide sur GitHub.  
-3. Ajoutez-le comme remote : `git remote add origin git@github.com:VOTRE_COMPTE/kantine.git`.  
-4. Poussez le code : `git push -u origin main`.  
-5. Toute nouvelle modification pourra être versionnée avec `git add`, `git commit`, `git push`.
+## 1. Prepare the GitHub Repository
 
-### 2. Créer et configurer l’application Discord
+1. Initialize the local repository (already done here).
+2. Create an empty repository on GitHub.
+3. Add it as a remote:
+   git remote add origin git@github.com:YOUR_ACCOUNT/kantine.git
+4. Push the code:
+   git push -u origin main
+5. Any further changes can be versioned using:
+   git add
+   git commit
+   git push
 
-1. Rendez-vous sur [Discord Developer Portal](https://discord.com/developers/applications) → **New Application**.  
-2. Dans l’onglet **Bot**, créez un bot et copiez le **Token** (mettez-le dans `.env`).  
-3. Activez les intents **SERVER MEMBERS INTENT** et **MESSAGE CONTENT INTENT** (le bot lit les interactions).  
-4. Dans **OAuth2 → URL Generator**, cochez `bot` + `applications.commands`, puis les permissions `Send Messages`, `Embed Links`, `Read Message History`, `Use Slash Commands`.  
-5. Utilisez l’URL générée pour inviter le bot sur votre serveur.
+---
 
-### 3. Configurer le projet local
+## 2. Create and Configure the Discord Application
 
-```bash
-cp .env.example .env              # renseignez le token Discord + port éventuel
-npm install                       # installe les dépendances
-npm run dev                       # démarre en mode développement
-# ou npm start pour lancer en production simple
-```
+1. Go to the Discord Developer Portal: https://discord.com/developers/applications → New Application.
+2. In the Bot tab, create a bot and copy the Bot Token (store it in .env).
+3. Enable the following privileged intents:
+   - SERVER MEMBERS INTENT
+   - MESSAGE CONTENT INTENT
+4. In OAuth2 → URL Generator:
+   - Scopes: bot, applications.commands
+   - Bot permissions:
+     - Send Messages
+     - Embed Links
+     - Read Message History
+     - Use Slash Commands
+5. Use the generated URL to invite the bot to your server.
 
-Le panel est accessible sur `http://localhost:3000/kantine`. Pour l’exposer sur votre réseau 192.168.1.x, lancez le serveur sur la machine cible et utilisez son IP locale : `http://192.168.1.N:3000/kantine`. Ajoutez ensuite une entrée DNS locale ou un reverse-proxy (Nginx/Traefik) si vous souhaitez exactement `http://192.168.1.x/kantine`.
+---
 
-### 4. Utilisation du panel
+## 3. Local Project Setup
 
-1. **Menus** : remplissez chaque textarea (un plat par ligne) puis cliquez sur “Sauvegarder les menus”.  
-2. **Envoi Discord** : renseignez l’ID du salon (clic droit sur le canal dans Discord → “Copier l’identifiant”) et, si besoin, un titre personnalisé. Cliquez sur “Envoyer le message”.  
-3. Le bot poste un embed avec les trois menus en haut, puis un tableau dynamique de réservations. Les boutons sous le message permettent :
-   - 11h‑12h ou 12h‑13h → ouvre un select pour choisir Kantine/Amerikain/Italien.
-   - Absence / Bench → bascule directement le statut.
-4. Chaque interaction met à jour l’embed automatiquement.
+cp .env.example .env
+npm install
+npm run dev
 
-### 5. Structure technique
+Or for production:
+npm start
 
-- `src/index.js` : démarre Express + Discord bot.
-- `src/discordBot.js` : logique d’intégration (embed, boutons, réservations).
-- `src/state.js` & `src/storage.js` : persistance JSON (`data/state.json`).
-- `public/` : mini interface HTML/JS/CSS servie sur `/kantine`.
+The admin panel is available at:
+http://localhost:3000/kantine
 
-### 6. Déploiement / production
+To expose it on your local network (192.168.1.x), run the server on the target machine and use its local IP:
+http://192.168.1.N:3000/kantine
 
-- Pour un service permanent, utilisez `pm2`, `systemd` ou Docker autour de `npm start`.
-- Sauvegardez régulièrement `data/state.json` si vous souhaitez garder l’historique des réservations/messages.
-- Pour sécuriser le panel sur un réseau plus large, placez-le derrière un reverse proxy avec authentification (basic auth, SSO, etc.) ou restreignez l’accès via firewall/VPN.
+You may also add a local DNS entry or use a reverse proxy (Nginx / Traefik) if you want a cleaner URL such as:
+http://192.168.1.x/kantine
 
-### 7. Notes supplémentaires
+---
 
-- Toute mise à jour des menus via le panel ne modifie pas automatiquement les anciens messages. Envoyez un nouveau message après chaque changement important.
-- Si vous souhaitez historiser plusieurs semaines, conservez les IDs des messages envoyés via panel (ils restent stockés dans `data/state.json`).
-- Pour étendre la solution (multi-serveur, base de données, hébergement cloud), versionnez les modifications et déployez via GitHub Actions ou votre pipeline préféré.
+## 4. Using the Admin Panel
+
+1. Menus
+   Fill each textarea (one dish per line) and click Save menus.
+
+2. Send to Discord
+   Enter the Channel ID (right-click the channel in Discord → Copy Channel ID).
+   Optionally set a custom title, then click Send message.
+
+3. The bot posts:
+   - An embed displaying the three menus
+   - A dynamic reservation table
+
+   Buttons below the message allow users to:
+   - Select 11:00–12:00 or 12:00–13:00, then choose Kantine / American / Italian
+   - Mark themselves as Absent / Bench
+
+4. Every interaction automatically updates the embed.
+
+---
+
+## 5. Technical Structure
+
+- src/index.js — starts Express and the Discord bot
+- src/discordBot.js — Discord logic (embeds, buttons, reservations)
+- src/state.js & src/storage.js — JSON persistence (data/state.json)
+- public/ — lightweight HTML/JS/CSS admin UI served at /kantine
+
+---
+
+## 6. Deployment / Production
+
+- For a persistent service, run the app with PM2, systemd, or Docker using npm start.
+- Regularly back up data/state.json if you want to keep reservation and message history.
+- To secure the admin panel on wider networks:
+  - Place it behind a reverse proxy with authentication (basic auth, SSO, etc.)
+  - Or restrict access via firewall or VPN.
+
+---
+
+## 7. Additional Notes
+
+- Updating menus in the admin panel does not update previously sent messages. Send a new message after significant menu changes.
+- To manage multiple weeks, keep the IDs of sent messages (stored in data/state.json).
+- For larger setups (multi-server, database, cloud hosting), version changes and deploy using GitHub Actions or your preferred CI/CD pipeline.
