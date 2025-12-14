@@ -103,7 +103,7 @@ export class KantineBot {
     });
 
     embed.setFooter({
-      text: 'Mettez à jour les menus via le panel 192.168.1.x/kantine'
+      text: 'kantine by Niv - https://github.com/Nivmizz7/kantine'
     });
 
     return embed;
