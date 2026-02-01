@@ -9,10 +9,15 @@ import {
 } from 'discord.js';
 import {
   MENU_KEYS,
+  SLOT_KEYS,
+  STATUS_KEYS,
+  SCHEDULE_SLOT_KEYS,
+  SCHEDULE_STATUS_KEYS,
   getMenus,
   getMessageState,
   registerMessage,
   formatReservationTable,
+  formatScheduleTable,
   upsertReservation
 } from './state.js';
 
@@ -36,16 +41,35 @@ export class KantineBot {
 
   async sendKantineMessage(channelId, title) {
     const channel = await this.fetchChannel(channelId);
-    const embed = this.buildEmbed(title, getMenus(), 'Aucune réservation pour le moment.');
+    const embed = this.buildMenuEmbed(title, getMenus(), 'Aucune réservation pour le moment.');
     const message = await channel.send({
       embeds: [embed],
-      components: buildButtons()
+      components: buildMenuButtons()
     });
 
     await registerMessage({
       messageId: message.id,
       channelId: message.channelId,
-      title
+      title,
+      type: 'menus'
+    });
+
+    return message;
+  }
+
+  async sendScheduleMessage(channelId, title) {
+    const channel = await this.fetchChannel(channelId);
+    const embed = this.buildScheduleEmbed(title, 'Aucune réservation pour le moment.');
+    const message = await channel.send({
+      embeds: [embed],
+      components: buildScheduleButtons()
+    });
+
+    await registerMessage({
+      messageId: message.id,
+      channelId: message.channelId,
+      title,
+      type: 'schedule'
     });
 
     return message;
@@ -60,10 +84,14 @@ export class KantineBot {
     try {
       const channel = await this.fetchChannel(state.channelId);
       const message = await channel.messages.fetch(messageId);
-      const embed = this.buildEmbed(state.title, getMenus(), formatReservationTable(state));
+      const isSchedule = state.type === 'schedule';
+      const embed = isSchedule
+        ? this.buildScheduleEmbed(state.title, formatScheduleTable(state))
+        : this.buildMenuEmbed(state.title, getMenus(), formatReservationTable(state));
+      const components = isSchedule ? buildScheduleButtons() : buildMenuButtons();
       await message.edit({
         embeds: [embed],
-        components: buildButtons()
+        components
       });
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -84,7 +112,7 @@ export class KantineBot {
     return channel;
   }
 
-  buildEmbed(title, menus, reservationsText) {
+  buildMenuEmbed(title, menus, reservationsText) {
     const embed = new EmbedBuilder().setTitle(title).setColor(0xf1c40f).setTimestamp(new Date());
 
     MENU_KEYS.forEach((key) => {
@@ -98,6 +126,22 @@ export class KantineBot {
 
     embed.addFields({
       name: 'Réservations',
+      value: reservationsText || 'Aucune réservation pour le moment.',
+      inline: false
+    });
+
+    embed.setFooter({
+      text: 'kantine by Niv - https://github.com/Nivmizz7/kantine'
+    });
+
+    return embed;
+  }
+
+  buildScheduleEmbed(title, reservationsText) {
+    const embed = new EmbedBuilder().setTitle(title).setColor(0x3498db).setTimestamp(new Date());
+
+    embed.addFields({
+      name: 'Horaires',
       value: reservationsText || 'Aucune réservation pour le moment.',
       inline: false
     });
@@ -129,8 +173,24 @@ export class KantineBot {
       return;
     }
 
+    if (customId.startsWith('schedule:')) {
+      const slot = customId.slice('schedule:'.length);
+      await interaction.deferReply({ ephemeral: true });
+      await upsertReservation(message.id, {
+        userId: interaction.user.id,
+        userTag: interaction.user.tag,
+        displayName: getDisplayName(interaction),
+        slot,
+        choice: null
+      });
+      await this.refreshMessage(message.id);
+      const label = SCHEDULE_STATUS_KEYS.includes(slot) ? `en ${slot}` : `sur ${slot}`;
+      await interaction.editReply(`Tu es maintenant marqué ${label}.`);
+      return;
+    }
+
     if (customId.startsWith('slot:')) {
-      const slot = customId.split(':')[1];
+      const slot = customId.slice('slot:'.length);
       await interaction.reply({
         ephemeral: true,
         content: `Choisissez votre menu pour ${slot}`,
@@ -140,7 +200,7 @@ export class KantineBot {
     }
 
     if (customId.startsWith('status:')) {
-      const status = customId.split(':')[1];
+      const status = customId.slice('status:'.length);
       await interaction.deferReply({ ephemeral: true });
       await upsertReservation(message.id, {
         userId: interaction.user.id,
@@ -161,7 +221,13 @@ export class KantineBot {
       return;
     }
 
-    const [, slot, messageId] = customId.split(':');
+    const rest = customId.slice('choose:'.length);
+    const lastColon = rest.lastIndexOf(':');
+    if (lastColon === -1) {
+      return;
+    }
+    const slot = rest.slice(0, lastColon);
+    const messageId = rest.slice(lastColon + 1);
     const choice = values[0];
 
     await interaction.deferUpdate();
@@ -182,15 +248,44 @@ export class KantineBot {
   }
 }
 
-function buildButtons() {
-  return [
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('slot:11h-12h').setLabel('11h-12h').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('slot:12h-13h').setLabel('12h-13h').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('status:Absence').setLabel('Absence').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('status:Bench').setLabel('Bench').setStyle(ButtonStyle.Secondary)
-    )
-  ];
+function buildMenuButtons() {
+  const buttons = [];
+  SLOT_KEYS.forEach((slot) => {
+    buttons.push(
+      new ButtonBuilder().setCustomId(`slot:${slot}`).setLabel(slot).setStyle(ButtonStyle.Primary)
+    );
+  });
+  STATUS_KEYS.forEach((status) => {
+    buttons.push(
+      new ButtonBuilder().setCustomId(`status:${status}`).setLabel(status).setStyle(ButtonStyle.Secondary)
+    );
+  });
+
+  return buildButtonRows(buttons);
+}
+
+function buildScheduleButtons() {
+  const buttons = [];
+  SCHEDULE_SLOT_KEYS.forEach((slot) => {
+    buttons.push(
+      new ButtonBuilder().setCustomId(`schedule:${slot}`).setLabel(slot).setStyle(ButtonStyle.Primary)
+    );
+  });
+  SCHEDULE_STATUS_KEYS.forEach((status) => {
+    buttons.push(
+      new ButtonBuilder().setCustomId(`schedule:${status}`).setLabel(status).setStyle(ButtonStyle.Secondary)
+    );
+  });
+
+  return buildButtonRows(buttons);
+}
+
+function buildButtonRows(buttons) {
+  const rows = [];
+  for (let i = 0; i < buttons.length; i += 5) {
+    rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+  }
+  return rows;
 }
 
 function buildSelect(slot, messageId) {

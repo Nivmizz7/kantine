@@ -9,6 +9,8 @@ const dataPath = path.resolve(__dirname, '../data/state.json');
 export const MENU_KEYS = ['Kantine', 'Amerikain', 'Italien'];
 export const SLOT_KEYS = ['11h-12h', '12h-13h'];
 export const STATUS_KEYS = ['Absence', 'Bench'];
+export const SCHEDULE_SLOT_KEYS = ['Matin', 'Fin'];
+export const SCHEDULE_STATUS_KEYS = ['Absence'];
 
 export const storage = new Storage(dataPath);
 
@@ -58,24 +60,42 @@ export async function updateSettings(patch) {
   });
 }
 
-export async function registerMessage({ messageId, channelId, title }) {
+export async function registerMessage({ messageId, channelId, title, type = 'menus' }) {
   return storage.update((state) => {
+    const finalType = type === 'schedule' ? 'schedule' : 'menus';
     state.messages[messageId] = {
       channelId,
       title,
+      type: finalType,
       createdAt: Date.now(),
       reservations: {}
     };
 
     state.settings.defaultChannelId = channelId;
-    state.settings.lastTitle = title;
+    if (finalType === 'schedule') {
+      state.settings.lastScheduleTitle = title;
+    } else {
+      state.settings.lastTitle = title;
+    }
 
     return state.messages[messageId];
   });
 }
 
 export function getMessageState(messageId) {
-  return storage.getState().messages[messageId];
+  const message = storage.getState().messages[messageId];
+  if (!message) {
+    return message;
+  }
+
+  if (!message.type) {
+    return {
+      ...message,
+      type: 'menus'
+    };
+  }
+
+  return message;
 }
 
 export async function upsertReservation(messageId, { userId, userTag, displayName, slot, choice }) {
@@ -115,20 +135,16 @@ export function formatReservationTable(message) {
     return 'Aucune réservation enregistrée.';
   }
 
-  const bucket = {
-    '11h-12h': {
-      Kantine: [],
-      Amerikain: [],
-      Italien: []
-    },
-    '12h-13h': {
-      Kantine: [],
-      Amerikain: [],
-      Italien: []
-    },
-    Absence: [],
-    Bench: []
-  };
+  const bucket = {};
+  SLOT_KEYS.forEach((slot) => {
+    bucket[slot] = {};
+    MENU_KEYS.forEach((menu) => {
+      bucket[slot][menu] = [];
+    });
+  });
+  STATUS_KEYS.forEach((status) => {
+    bucket[status] = [];
+  });
 
   Object.values(message.reservations ?? {}).forEach((entry) => {
     const label = entry.displayName ?? entry.userTag;
@@ -154,6 +170,40 @@ export function formatReservationTable(message) {
   });
 
   STATUS_KEYS.forEach((status) => {
+    const values = bucket[status];
+    lines.push(`**${status}**: ${values.length ? values.join(', ') : '—'}`);
+  });
+
+  return lines.join('\n').trim();
+}
+
+export function formatScheduleTable(message) {
+  if (!message) {
+    return 'Aucune réservation enregistrée.';
+  }
+
+  const bucket = {};
+  SCHEDULE_SLOT_KEYS.forEach((slot) => {
+    bucket[slot] = [];
+  });
+  SCHEDULE_STATUS_KEYS.forEach((status) => {
+    bucket[status] = [];
+  });
+
+  Object.values(message.reservations ?? {}).forEach((entry) => {
+    const label = entry.displayName ?? entry.userTag;
+    if (bucket[entry.slot]) {
+      bucket[entry.slot].push(label);
+    }
+  });
+
+  const lines = [];
+  SCHEDULE_SLOT_KEYS.forEach((slot) => {
+    const values = bucket[slot];
+    lines.push(`**${slot}**: ${values.length ? values.join(', ') : '—'}`);
+  });
+
+  SCHEDULE_STATUS_KEYS.forEach((status) => {
     const values = bucket[status];
     lines.push(`**${status}**: ${values.length ? values.join(', ') : '—'}`);
   });

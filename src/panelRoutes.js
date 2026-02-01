@@ -42,5 +42,26 @@ export function createPanelRouter(bot) {
     }
   });
 
+  router.post('/send-schedule', async (req, res, next) => {
+    try {
+      const { channelId, title } = req.body ?? {};
+      if (!channelId) {
+        res.status(400).json({ error: 'channelId requis' });
+        return;
+      }
+
+      const settings = getSettings();
+      const finalTitle = title?.trim() || settings.lastScheduleTitle || 'Horaires';
+      const message = await bot.sendScheduleMessage(channelId, finalTitle);
+
+      res.json({
+        messageId: message.id,
+        channelId: message.channelId
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   return router;
 }

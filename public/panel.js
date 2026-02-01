@@ -1,8 +1,10 @@
 const API_BASE = '/kantine/api';
 const menuForm = document.getElementById('menu-form');
 const sendForm = document.getElementById('send-form');
+const scheduleForm = document.getElementById('schedule-form');
 const menuStatus = document.getElementById('menu-status');
 const sendStatus = document.getElementById('send-status');
+const scheduleStatus = document.getElementById('schedule-status');
 
 const categories = ['Kantine', 'Amerikain', 'Italien'];
 
@@ -20,10 +22,17 @@ async function init() {
 
     if (state.settings?.defaultChannelId) {
       sendForm.elements.channelId.value = state.settings.defaultChannelId;
+      if (scheduleForm) {
+        scheduleForm.elements.channelId.value = state.settings.defaultChannelId;
+      }
     }
 
     if (state.settings?.lastTitle) {
       sendForm.elements.title.value = state.settings.lastTitle;
+    }
+
+    if (state.settings?.lastScheduleTitle && scheduleForm) {
+      scheduleForm.elements.title.value = state.settings.lastScheduleTitle;
     }
   } catch (error) {
     menuStatus.textContent = `Impossible de charger l'état : ${error.message}`;
@@ -67,6 +76,25 @@ sendForm.addEventListener('submit', async (event) => {
     sendStatus.textContent = error.message;
   }
 });
+
+if (scheduleForm) {
+  scheduleForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const formData = new FormData(scheduleForm);
+    const payload = {
+      channelId: formData.get('channelId'),
+      title: formData.get('title')
+    };
+
+    scheduleStatus.textContent = 'Envoi en cours...';
+    try {
+      const response = await request('POST', 'send-schedule', payload);
+      scheduleStatus.textContent = `Message horaires envoyé (#${response.channelId})`;
+    } catch (error) {
+      scheduleStatus.textContent = error.message;
+    }
+  });
+}
 
 async function request(method, endpoint, body) {
   const options = {

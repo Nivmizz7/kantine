@@ -52,6 +52,22 @@
       </section>
 
       <section class="card">
+        <h2>Envoyer le message horaires</h2>
+        <form id="schedule-form">
+          <label>
+            ID du salon Discord
+            <input name="channelId" placeholder="1234567890" required />
+          </label>
+          <label>
+            Titre de l’intégration
+            <input name="title" placeholder="Horaires" />
+          </label>
+          <button type="submit">Envoyer le message horaires</button>
+        </form>
+        <p class="hint" id="schedule-status"></p>
+      </section>
+
+      <section class="card">
         <h2>Aide rapide</h2>
         <ul>
           <li>Ajoutez le bot à votre serveur et copiez l’ID du salon cible.</li>

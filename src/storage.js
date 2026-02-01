@@ -11,7 +11,8 @@ const defaultState = {
   messages: {},
   settings: {
     defaultChannelId: '',
-    lastTitle: 'Menus de la semaine'
+    lastTitle: 'Menus de la semaine',
+    lastScheduleTitle: 'Horaires'
   }
 };
 
