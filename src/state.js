@@ -9,8 +9,6 @@ const dataPath = path.resolve(__dirname, '../data/state.json');
 export const MENU_KEYS = ['Kantine', 'Amerikain', 'Italien'];
 export const SLOT_KEYS = ['11h-12h', '12h-13h'];
 export const STATUS_KEYS = ['Absence', 'Bench'];
-export const SCHEDULE_SLOT_KEYS = ['Matin', 'Fin'];
-export const SCHEDULE_STATUS_KEYS = ['Absence'];
 
 export const storage = new Storage(dataPath);
 
@@ -118,6 +116,53 @@ export async function upsertReservation(messageId, { userId, userTag, displayNam
   });
 }
 
+export async function upsertScheduleSelection(messageId, { userId, userTag, displayName, period, time }) {
+  return storage.update((state) => {
+    const message = state.messages[messageId];
+    if (!message) {
+      throw new Error('MESSAGE_NOT_FOUND');
+    }
+
+    const current = message.reservations[userId] ?? {};
+    message.reservations[userId] = {
+      userId,
+      userTag,
+      displayName,
+      matin: current.matin ?? null,
+      apresmidi: current.apresmidi ?? null,
+      absence: false,
+      updatedAt: Date.now()
+    };
+
+    if (period === 'matin' || period === 'apresmidi') {
+      message.reservations[userId][period] = time;
+    }
+
+    return message;
+  });
+}
+
+export async function markScheduleAbsence(messageId, { userId, userTag, displayName }) {
+  return storage.update((state) => {
+    const message = state.messages[messageId];
+    if (!message) {
+      throw new Error('MESSAGE_NOT_FOUND');
+    }
+
+    message.reservations[userId] = {
+      userId,
+      userTag,
+      displayName,
+      matin: null,
+      apresmidi: null,
+      absence: true,
+      updatedAt: Date.now()
+    };
+
+    return message;
+  });
+}
+
 export async function removeReservation(messageId, userId) {
   return storage.update((state) => {
     const message = state.messages[messageId];
@@ -177,36 +222,56 @@ export function formatReservationTable(message) {
   return lines.join('\n').trim();
 }
 
-export function formatScheduleTable(message) {
-  if (!message) {
-    return 'Aucune réservation enregistrée.';
-  }
+export function formatScheduleTable(message, scheduleConfig) {
+  const safeMessage = message ?? { reservations: {} };
+  const matinSlots = scheduleConfig?.matin ?? [];
+  const apresmidiSlots = scheduleConfig?.apresmidi ?? [];
 
-  const bucket = {};
-  SCHEDULE_SLOT_KEYS.forEach((slot) => {
-    bucket[slot] = [];
+  const bucket = {
+    matin: {},
+    apresmidi: {},
+    absence: []
+  };
+
+  matinSlots.forEach((slot) => {
+    bucket.matin[slot] = [];
   });
-  SCHEDULE_STATUS_KEYS.forEach((status) => {
-    bucket[status] = [];
+  apresmidiSlots.forEach((slot) => {
+    bucket.apresmidi[slot] = [];
   });
 
-  Object.values(message.reservations ?? {}).forEach((entry) => {
+  Object.values(safeMessage.reservations ?? {}).forEach((entry) => {
     const label = entry.displayName ?? entry.userTag;
-    if (bucket[entry.slot]) {
-      bucket[entry.slot].push(label);
+    if (entry.absence) {
+      bucket.absence.push(label);
+      return;
+    }
+
+    if (entry.matin && bucket.matin[entry.matin]) {
+      bucket.matin[entry.matin].push(label);
+    }
+
+    if (entry.apresmidi && bucket.apresmidi[entry.apresmidi]) {
+      bucket.apresmidi[entry.apresmidi].push(label);
     }
   });
 
   const lines = [];
-  SCHEDULE_SLOT_KEYS.forEach((slot) => {
-    const values = bucket[slot];
-    lines.push(`**${slot}**: ${values.length ? values.join(', ') : '—'}`);
+  lines.push('**Matin**');
+  matinSlots.forEach((slot) => {
+    const values = bucket.matin[slot];
+    lines.push(`• ${slot}: ${values.length ? values.join(', ') : '—'}`);
   });
 
-  SCHEDULE_STATUS_KEYS.forEach((status) => {
-    const values = bucket[status];
-    lines.push(`**${status}**: ${values.length ? values.join(', ') : '—'}`);
+  lines.push('');
+  lines.push('**Apres-midi**');
+  apresmidiSlots.forEach((slot) => {
+    const values = bucket.apresmidi[slot];
+    lines.push(`• ${slot}: ${values.length ? values.join(', ') : '—'}`);
   });
+
+  lines.push('');
+  lines.push(`**Absence**: ${bucket.absence.length ? bucket.absence.join(', ') : '—'}`);
 
   return lines.join('\n').trim();
 }

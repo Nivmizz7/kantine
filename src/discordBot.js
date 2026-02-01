@@ -11,15 +11,16 @@ import {
   MENU_KEYS,
   SLOT_KEYS,
   STATUS_KEYS,
-  SCHEDULE_SLOT_KEYS,
-  SCHEDULE_STATUS_KEYS,
   getMenus,
   getMessageState,
   registerMessage,
   formatReservationTable,
   formatScheduleTable,
-  upsertReservation
+  upsertReservation,
+  upsertScheduleSelection,
+  markScheduleAbsence
 } from './state.js';
+import { getScheduleConfig } from './scheduleConfig.js';
 
 export class KantineBot {
   constructor() {
@@ -59,10 +60,14 @@ export class KantineBot {
 
   async sendScheduleMessage(channelId, title) {
     const channel = await this.fetchChannel(channelId);
-    const embed = this.buildScheduleEmbed(title, 'Aucune réservation pour le moment.');
+    const scheduleConfig = await getScheduleConfig();
+    const embed = this.buildScheduleEmbed(
+      title,
+      formatScheduleTable({ reservations: {} }, scheduleConfig)
+    );
     const message = await channel.send({
       embeds: [embed],
-      components: buildScheduleButtons()
+      components: buildScheduleComponents(scheduleConfig)
     });
 
     await registerMessage({
@@ -85,10 +90,16 @@ export class KantineBot {
       const channel = await this.fetchChannel(state.channelId);
       const message = await channel.messages.fetch(messageId);
       const isSchedule = state.type === 'schedule';
-      const embed = isSchedule
-        ? this.buildScheduleEmbed(state.title, formatScheduleTable(state))
-        : this.buildMenuEmbed(state.title, getMenus(), formatReservationTable(state));
-      const components = isSchedule ? buildScheduleButtons() : buildMenuButtons();
+      let embed = null;
+      let components = null;
+      if (isSchedule) {
+        const scheduleConfig = await getScheduleConfig();
+        embed = this.buildScheduleEmbed(state.title, formatScheduleTable(state, scheduleConfig));
+        components = buildScheduleComponents(scheduleConfig);
+      } else {
+        embed = this.buildMenuEmbed(state.title, getMenus(), formatReservationTable(state));
+        components = buildMenuButtons();
+      }
       await message.edit({
         embeds: [embed],
         components
@@ -173,19 +184,20 @@ export class KantineBot {
       return;
     }
 
-    if (customId.startsWith('schedule:')) {
-      const slot = customId.slice('schedule:'.length);
+    if (customId === 'schedule-absence') {
+      if (messageState.type !== 'schedule') {
+        await interaction.reply({ content: 'Ce message ne peut plus être mis à jour.', ephemeral: true });
+        return;
+      }
+
       await interaction.deferReply({ ephemeral: true });
-      await upsertReservation(message.id, {
+      await markScheduleAbsence(message.id, {
         userId: interaction.user.id,
         userTag: interaction.user.tag,
-        displayName: getDisplayName(interaction),
-        slot,
-        choice: null
+        displayName: getDisplayName(interaction)
       });
       await this.refreshMessage(message.id);
-      const label = SCHEDULE_STATUS_KEYS.includes(slot) ? `en ${slot}` : `sur ${slot}`;
-      await interaction.editReply(`Tu es maintenant marqué ${label}.`);
+      await interaction.editReply('Tu es maintenant marqué en Absence.');
       return;
     }
 
@@ -217,6 +229,35 @@ export class KantineBot {
 
   async handleSelect(interaction) {
     const { customId, values } = interaction;
+    if (customId.startsWith('schedule-select:')) {
+      const period = customId.slice('schedule-select:'.length);
+      if (period !== 'matin' && period !== 'apresmidi') {
+        return;
+      }
+      const messageState = getMessageState(interaction.message.id);
+      if (!messageState || messageState.type !== 'schedule') {
+        await interaction.reply({ content: 'Ce message ne peut plus être mis à jour.', ephemeral: true });
+        return;
+      }
+
+      const time = values[0];
+      await interaction.deferUpdate();
+      await upsertScheduleSelection(interaction.message.id, {
+        userId: interaction.user.id,
+        userTag: interaction.user.tag,
+        displayName: getDisplayName(interaction),
+        period,
+        time
+      });
+
+      await this.refreshMessage(interaction.message.id);
+      await interaction.followUp({
+        ephemeral: true,
+        content: `Horaire ${period} enregistré (${time}).`
+      });
+      return;
+    }
+
     if (!customId.startsWith('choose:')) {
       return;
     }
@@ -264,20 +305,40 @@ function buildMenuButtons() {
   return buildButtonRows(buttons);
 }
 
-function buildScheduleButtons() {
-  const buttons = [];
-  SCHEDULE_SLOT_KEYS.forEach((slot) => {
-    buttons.push(
-      new ButtonBuilder().setCustomId(`schedule:${slot}`).setLabel(slot).setStyle(ButtonStyle.Primary)
-    );
-  });
-  SCHEDULE_STATUS_KEYS.forEach((status) => {
-    buttons.push(
-      new ButtonBuilder().setCustomId(`schedule:${status}`).setLabel(status).setStyle(ButtonStyle.Secondary)
-    );
-  });
+function buildScheduleComponents(scheduleConfig) {
+  const rows = [];
+  const morningOptions = toSelectOptions(scheduleConfig?.matin ?? []);
+  const afternoonOptions = toSelectOptions(scheduleConfig?.apresmidi ?? []);
 
-  return buildButtonRows(buttons);
+  if (morningOptions.length) {
+    rows.push(
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('schedule-select:matin')
+          .setPlaceholder('Choisissez votre horaire matin')
+          .addOptions(morningOptions)
+      )
+    );
+  }
+
+  if (afternoonOptions.length) {
+    rows.push(
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('schedule-select:apresmidi')
+          .setPlaceholder('Choisissez votre horaire apres-midi')
+          .addOptions(afternoonOptions)
+      )
+    );
+  }
+
+  rows.push(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('schedule-absence').setLabel('Absence').setStyle(ButtonStyle.Secondary)
+    )
+  );
+
+  return rows;
 }
 
 function buildButtonRows(buttons) {
@@ -286,6 +347,17 @@ function buildButtonRows(buttons) {
     rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
   }
   return rows;
+}
+
+function toSelectOptions(values) {
+  return values
+    .map((value) => String(value).trim())
+    .filter((value) => value.length > 0)
+    .slice(0, 25)
+    .map((value) => ({
+      label: value,
+      value
+    }));
 }
 
 function buildSelect(slot, messageId) {
